@@ -1,12 +1,16 @@
-#include "User.h"
+#include "Menu.h"
 #include <limits>
+#include <fstream>
+#include <iostream>
+#include <filesystem>
+#include <map>
 
 using std::cout;
 using std::string;
 using std::endl;
 using std::cin;
 
-User::User()
+Menu::Menu()
 {
 	//add here the restore for playlists you just need to give the playlist the name of the file and thats all 
 	cout << "welcome to my app :)\ncreating a dir for you to add your songs" << endl;
@@ -28,7 +32,7 @@ User::User()
 	}
 } 
 
-void User::serve() 
+void Menu::serve() 
 {
 	int choice = 0;
 	cout << "Welcome to the menu!" << endl;
@@ -43,6 +47,7 @@ void User::serve()
 			cout << "Dont try to crash my program please! I've very worked hard" << endl;
 			continue;
 		}
+		std::cin.ignore(); //ignore the \n that is left
 		try
 		{
 			if (choice == 1)
@@ -62,7 +67,7 @@ void User::serve()
 	cout << "goodbye! your playlists are saved" << endl;
 }
 
-void User::createPlaylist()
+void Menu::createPlaylist()
 {
 	std::string name;
 	cout << "Please enter the name for the playlist: " << endl;
@@ -75,16 +80,17 @@ void User::createPlaylist()
 	{
 		throw std::invalid_argument("playlist with that name already exists!");
 	}
-	std::ofstream file("playlist - " + name);
+	std::ofstream file(name + ".txt");
 	if (!file.is_open())
 	{
 		throw std::invalid_argument("cannot create this playlist");
 	}
+	file.close();
 	this->_playlists.emplace(name, std::move(Playlist(name)));
 	cout << name << " - was created" << endl;
 }
 
-void User::selectPlaylist()
+void Menu::selectPlaylist()
 {
 	cout << "here is a list of your playlists: " << endl;
 	for (const auto& it : this->_playlists)

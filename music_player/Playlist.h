@@ -7,33 +7,28 @@
 #pragma once
 
 //includes
-#include <set>
 #include <iostream>
-#include <filesystem>
-#include <string>
-#include <map>
-#include <cstdlib>
-#include <ctime>
+#include <vector>
 #include <atomic>
-#include <thread>
-constexpr char songs[] = "Songs";
+
+constexpr const char* songs = "Songs";
 
 class Playlist
 {
 public:
 	Playlist(const std::string& name);
-	~Playlist();
 	Playlist(Playlist&& other) noexcept;
+	inline bool operator<(const Playlist& other);
 	void serve();
 private:
 	void addSong();
 	void removeSong();
 	void stopToPlay();
 	void playAudio() const;
-	static std::wstring getSong();
+	std::string getSong(const bool songFromPlaylist);
 
 	std::string _name;
-	std::set<std::wstring> _songs;
+	std::vector<std::string> _songs;
 	bool _shuffled;
 	std::atomic<bool> _running;
 };

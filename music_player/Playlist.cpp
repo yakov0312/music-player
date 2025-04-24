@@ -1,8 +1,12 @@
 #include "Playlist.h"
+#define NOMINMAX
 #include <limits>
 #include <fstream>
-#define NOMINMAX
+#include <filesystem>
+#include <thread>
 #include "Windows.h"
+
+#pragma comment(lib, "winmm.lib")
 
 using std::cout;
 using std::endl;
@@ -11,34 +15,15 @@ using std::cin;
 
 Playlist::Playlist(const std::string& name) : _name(name), _songs(), _shuffled(false), _running(true)
 {
-	std::wifstream file(this->_name);
-	std::wstring song = L"";
+	std::ifstream file( this->_name + ".txt");
+	std::string song = "";
 	if (file.is_open())
 	{
 
 		while (std::getline(file, song))
 		{
-			this->_songs.insert(song);
+			this->_songs.push_back(song);
 		}
-	}
-	file.close();
-}
-
-Playlist::~Playlist()
-{
-	//here write the play list to a file 
-	std::wofstream file(this->_name);
-	if(file.is_open())
-	{
-		
-		for (const auto& it : this->_songs)
-		{
-			file << it << endl;
-		}
-	}
-	else
-	{
-		cout << "cannot open the file playlist will not be saved" << endl;
 	}
 	file.close();
 }
@@ -50,13 +35,19 @@ Playlist::Playlist(Playlist&& other) noexcept :
 	_running.store(other._running.load());
 }
 
+bool Playlist::operator<(const Playlist& other)
+{
+	return this->_name < other._name;
+}
+
 void Playlist::serve()
 {
-	cout << "playlist name: " << this->_name << "\nChoose one of the options below:\n1.Add a song\n2.Remove a song\n3.Play the playlist" << endl;
-	cout << (this->_shuffled) ? "4.Turn shuffled mode off\n5.exit\n" : "4.Turn shuffled mode on\n5.exit\n";
 	int choice = 0;
 	while (choice != 5)
 	{
+		cout << "playlist name: " << this->_name << "\nChoose one of the options below:\n1.Add a song\n2.Remove a song\n3.Play the playlist" << endl;
+		cout << ((this->_shuffled) ? "4.Turn shuffled mode off\n5.exit\n" : "4.Turn shuffled mode on\n5.exit\n");
+
 		cin >> choice;
 		if (cin.fail())
 		{
@@ -97,45 +88,51 @@ void Playlist::serve()
 
 void Playlist::addSong()
 {
-	std::wstring song = L"";
+	std::string song = "";
 	do
 	{
 		try
 		{
-			song = this->getSong();
+			song = this->getSong(false);
 		}
 		catch (const std::invalid_argument& e)
 		{
-			cout << e.what() << endl;;
+			cout << e.what() << endl;
 		}
-		if (song == L"exit")
+		if (song == "exit")
 		{
 			break;
 		}
-		std::wstring songCommand = L"open \"" + song + L"\" type waveaudio alias audiofile";
-		this->_songs.insert(songCommand);
+		this->_songs.push_back(song);
+		std::ofstream playlist(song + ".txt");
+		if (!playlist.is_open())
+		{
+			throw std::exception("Cant open a file");
+		}
+		playlist << song << endl;
 	} while (true);
 }
 
 void Playlist::removeSong()
 {
-	std::wstring song = L"";
+	std::string song = "";
 	do
 	{
 		try
 		{
-			song = this->getSong();
+			song = this->getSong(true);
 		}
 		catch (const std::invalid_argument& e)
 		{
-			cout << e.what() << endl;;
+			cout << e.what() << endl;
 		}
-		if (song == L"exit")
+		if (song == "exit")
 		{
 			break;
 		}
-		std::wstring songCommand = L"open \"" + song + L"\" type waveaudio alias audiofile";
-		this->_songs.erase(songCommand);
+
+		this->_songs.erase(std::find(this->_songs.begin(), this->_songs.end(), song));
+		//to do: earse it from the file too
 	} while (true);
 }
 
@@ -171,28 +168,38 @@ void Playlist::playAudio() const
 				} while (lastChoice == i);
 				lastChoice = i;
 			}
-			const auto& it = this->_songs.begin();
-			std::advance(it, i);
-			mciSendStringW((*it).c_str(), NULL, 0, NULL);
-			mciSendStringW(L"play audiofile wait", NULL, 0, NULL);
-			mciSendStringW(L"close audiofile", NULL, 0, NULL);
+			mciSendStringA(std::string("open \"" + this->_songs[i] + "\" type waveaudio alias audiofile").c_str(), NULL, 0, NULL);
+			mciSendStringA("play audiofile wait", NULL, 0, NULL);
+			mciSendStringA("close audiofile", NULL, 0, NULL);
 		}
 	}
 }
 
-std::wstring Playlist::getSong()
+std::string Playlist::getSong(const bool songFromPlaylist)
 {
 	cout << "choose one song from the list: " << endl;
-	std::map<int, std::wstring> list = {};
 	int choice = 0;
-	int i = 1;
-	for (const auto& file : std::filesystem::directory_iterator(songs))
+	int numOfSongs = 1;
+	std::vector<std::string> songList = {};
+	if (songFromPlaylist)
 	{
-		cout << i << file.path().filename().string() << endl;
-		list.insert(std::make_pair(i, file.path().filename().wstring()));
-		i++;
+		for (const auto& song : this->_songs)
+		{
+			cout << numOfSongs << ". " + song << endl;
+			numOfSongs++;
+		}
 	}
-	cout << std::to_string(i) << ". exit" << endl;
+	else
+	{
+		for (const auto& file : std::filesystem::directory_iterator(songs))
+		{
+			cout << numOfSongs << ". " + file.path().filename().string() << endl;
+			songList.push_back(file.path().filename().string());
+			numOfSongs++;
+		}
+	}
+
+	cout << std::to_string(numOfSongs) << ". exit" << endl;
 	cout << "your choice: ";
 	cin >> choice;
 	if (cin.fail())
@@ -201,13 +208,13 @@ std::wstring Playlist::getSong()
 		cin.ignore(std::numeric_limits<std::streamsize>::max());
 		throw std::invalid_argument("Error: wrong input!!");
 	}
-	if (choice == i)
+	if (choice == numOfSongs)
 	{
-		return L"exit";
+		return "exit";
 	}
-	if (list.find(choice) == list.end())
+	if ((songFromPlaylist && this->_songs.size() < choice) || (!songFromPlaylist && songList.size() < choice) || choice <= 0)
 	{
 		throw std::invalid_argument("Error: wrong input!! song does not exist");
 	}
-	return list.find(choice)->second;
+	return (songFromPlaylist) ? this->_songs[choice -1] : songList[choice - 1]; // -1 because we want to convert it to an index
 }

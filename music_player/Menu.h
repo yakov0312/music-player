@@ -4,26 +4,22 @@
 #pragma once
 
 //includes
-#include <iostream>
-#include <filesystem>
-#include <map>
-#include <fstream>
 
 //headers
 #include "Playlist.h"
+#include <map>
 
 //consts 
 constexpr const char* PLAYLIST_DATA = "playlistData";
 
-class User
+class Menu
 {
 public:
-	User();
+	Menu();
 	void serve();
 
 private:
 	void createPlaylist();
 	void selectPlaylist();
 	std::map<std::string, Playlist> _playlists; // - will restore it self(the way is written in Playlist.h)
-	// note that i want to sort it by the a-z so create the operrato < or > for playlist
 };
