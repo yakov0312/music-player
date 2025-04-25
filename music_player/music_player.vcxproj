@@ -131,10 +131,19 @@
     <ClCompile Include="mian.cpp" />
     <ClCompile Include="Playlist.cpp" />
     <ClCompile Include="Menu.cpp" />
+    <ClCompile Include="SqlCmd.cpp" />
+    <ClCompile Include="sqlite3.c" />
+    <ClCompile Include="SqliteDataBase.cpp" />
+    <ClCompile Include="SqlTables.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Playlist.h" />
     <ClInclude Include="Menu.h" />
+    <ClInclude Include="SqlCmd.h" />
+    <ClInclude Include="SqlConstants.h" />
+    <ClInclude Include="sqlite3.h" />
+    <ClInclude Include="SqliteDataBase.h" />
+    <ClInclude Include="SqlTables.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
