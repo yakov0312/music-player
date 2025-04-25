@@ -11,6 +11,7 @@
 #include <vector>
 #include <atomic>
 
+constexpr const char* PLAYLIST_PATH = "playlistData\\{}.txt";
 constexpr const char* songs = "Songs";
 
 class Playlist
@@ -18,7 +19,9 @@ class Playlist
 public:
 	Playlist(const std::string& name);
 	Playlist(Playlist&& other) noexcept;
-	inline bool operator<(const Playlist& other);
+	inline bool operator<(const Playlist& other);	
+	bool operator==(const Playlist& other);
+	friend std::ostream& operator<<(std::ostream& os, const Playlist& playlist);
 	void serve();
 private:
 	void addSong();
@@ -32,3 +35,4 @@ private:
 	bool _shuffled;
 	std::atomic<bool> _running;
 };
+

@@ -21,5 +21,5 @@ public:
 private:
 	void createPlaylist();
 	void selectPlaylist();
-	std::map<std::string, Playlist> _playlists; // - will restore it self(the way is written in Playlist.h)
+	std::vector<Playlist> _playlists; // - will restore it self(the way is written in Playlist.h)
 };

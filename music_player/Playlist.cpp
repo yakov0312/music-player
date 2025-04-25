@@ -15,17 +15,17 @@ using std::cin;
 
 Playlist::Playlist(const std::string& name) : _name(name), _songs(), _shuffled(false), _running(true)
 {
-	std::ifstream file( this->_name + ".txt");
+	std::ifstream playlist(std::format(PLAYLIST_PATH, name));
 	std::string song = "";
-	if (file.is_open())
+	if (playlist.is_open())
 	{
 
-		while (std::getline(file, song))
+		while (std::getline(playlist, song))
 		{
 			this->_songs.push_back(song);
 		}
 	}
-	file.close();
+	playlist.close();
 }
 
 Playlist::Playlist(Playlist&& other) noexcept :
@@ -38,6 +38,11 @@ Playlist::Playlist(Playlist&& other) noexcept :
 bool Playlist::operator<(const Playlist& other)
 {
 	return this->_name < other._name;
+}
+
+bool Playlist::operator==(const Playlist& other)
+{
+	return this->_name == other._name;
 }
 
 void Playlist::serve()
@@ -104,7 +109,7 @@ void Playlist::addSong()
 			break;
 		}
 		this->_songs.push_back(song);
-		std::ofstream playlist(song + ".txt");
+		std::ofstream playlist(std::format(PLAYLIST_PATH, this->_name));
 		if (!playlist.is_open())
 		{
 			throw std::exception("Cant open a file");
@@ -125,6 +130,7 @@ void Playlist::removeSong()
 		catch (const std::invalid_argument& e)
 		{
 			cout << e.what() << endl;
+			return;
 		}
 		if (song == "exit")
 		{
@@ -217,4 +223,9 @@ std::string Playlist::getSong(const bool songFromPlaylist)
 		throw std::invalid_argument("Error: wrong input!! song does not exist");
 	}
 	return (songFromPlaylist) ? this->_songs[choice -1] : songList[choice - 1]; // -1 because we want to convert it to an index
+}
+
+std::ostream& operator<<(std::ostream& os, const Playlist& playlist)
+{
+	return os << playlist._name << endl;
 }
