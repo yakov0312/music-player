@@ -5,7 +5,7 @@
 #include "SqlConstants.h"
 
 using std::string, std::endl;
-
+//ctor for sqliteDatabaase - will create and store the commands that will be used
 SqliteDataBase::SqliteDataBase()
     : m_db(nullptr),
     m_createPlaylistTable(Sql::Cmd::createTable(Sql::PLAYLIST.tableName(),
@@ -56,55 +56,55 @@ SqliteDataBase::SqliteDataBase()
         }
     }
 }
-
+//the function will return the instance of the class
 SqliteDataBase& SqliteDataBase::getInstance()
 {
     static SqliteDataBase instance;
 
     return instance;
 }
-
+//dtor for sqliteDatabase
 SqliteDataBase::~SqliteDataBase()
 {
     sqlite3_close(m_db);
 
     m_db = nullptr;
 }
-
+//the function will add a song to the db
 void SqliteDataBase::addSongToPlaylist(const string& playlistName, const string& song)
 {
     m_addSong.runFormat(m_db, nullptr, nullptr, song, playlistName);
 }
-
+//the function will delete song from a playlist 
 void SqliteDataBase::removeSongFromPlaylist(const string& playlistName, const string& song)
 {
     m_removeSong.runFormat(m_db, nullptr, nullptr, playlistName, song);
 }
-
+//the function will create a playlist
 void SqliteDataBase::createPlaylist(const string& playlistName)
 {
     m_createPlaylist.runFormat(m_db, nullptr, nullptr, playlistName);
 }
-
+//the function will delete a playlist
 void SqliteDataBase::deletePlaylist(const string& playlistName)
 {
     m_deletePlaylist.runFormat(m_db, nullptr, nullptr, playlistName);
 }
-
+//the function will return the songs from a playlist
 std::vector<string> SqliteDataBase::getSongsOfPlaylist(const string& playlistName)
 {
     std::vector<string> songs = {};
     m_getSongsOfPlaylist.runFormat(m_db, Sql::getNamesCallback, &songs, playlistName);
     return songs;
 }
-
+//the function will return all the playlists of the user
 std::vector<string> SqliteDataBase::getPlaylists()
 {
     std::vector<string> playlists = {};
     m_getPlaylists.run(m_db, Sql::getNamesCallback, &playlists);
     return playlists;
 }
-
+//the function will init the db
 bool SqliteDataBase::initDB()
 {
     return (m_createPlaylistTable.run(m_db)) ? m_createSongTable.run(m_db) : false;

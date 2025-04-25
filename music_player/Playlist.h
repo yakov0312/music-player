@@ -13,15 +13,15 @@
 #include "SqliteDataBase.h"
 
 constexpr const char* SONGS_PATH = "Songs";
+constexpr const char* EXIT = "exit";
+constexpr const char* PLAY_SONG = "play audiofile";
+constexpr const char* CLOSE_SONG = "close audiofile";
+constexpr const char* OPEN_SONG = "open \"{}\" type waveaudio alias audiofile";
 
 class Playlist
 {
 public:
 	Playlist(const std::string& name, SqliteDataBase& db);
-	Playlist(Playlist&& other) noexcept;
-	bool operator<(const Playlist& other) const;	
-	bool operator==(const std::string& otherName) const; // to use with std::find
-	friend std::ostream& operator<<(std::ostream& os, const Playlist& playlist);
 	void serve();
 private:
 	void addSong();

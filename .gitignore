@@ -400,3 +400,5 @@ FodyWeavers.xsd
 *.sln.iml
 
 .wav
+.sqlite
+.db

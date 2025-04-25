@@ -3,30 +3,30 @@
 
 using std::endl, std::cout, std::string;
 
-
+//ctor for cmd
 Sql::Cmd::Cmd(const string& cmd)
 	: m_cmd(cmd)
 {
 }
-
+//the function will run the command
 bool Sql::Cmd::run(sqlite3* db, int (*callback)(void*, int, char**, char**), void* data)  const
 {
 	return executeCmd(db, m_cmd, callback, data);
 }
-
+//the function will append where to the command
 Sql::Cmd& Sql::Cmd::withWhere(const string& cond)
 {
 	m_cmd += " WHERE " + cond;
 
 	return *this;
 }
-
+//the function will append inner join to the command
 Sql::Cmd& Sql::Cmd::innerJoin(const string& table, const string& firstCol, const string& secondCol)
 {
 	m_cmd += " INNER JOIN " + table + " ON " + firstCol + " = " + secondCol;
 	return *this;
 }
-
+//the function will append and to the command 
 Sql::Cmd& Sql::Cmd::withAnd(const string& cond)
 {
 	m_cmd += " AND ";
@@ -34,7 +34,7 @@ Sql::Cmd& Sql::Cmd::withAnd(const string& cond)
 
 	return *this;
 }
-
+//the funtion will append or to the command
 Sql::Cmd& Sql::Cmd::withOr(const string& cond)
 {
 	m_cmd += " OR ";
@@ -42,7 +42,7 @@ Sql::Cmd& Sql::Cmd::withOr(const string& cond)
 
 	return *this;
 }
-
+//the function will create a cmd for create table 
 Sql::Cmd Sql::Cmd::createTable(const string& tableName, const std::vector<Sql::Field>& fields, const std::optional<Key>& key)
 {
 	string cmdStr = "CREATE TABLE " + tableName;
@@ -75,7 +75,7 @@ Sql::Cmd Sql::Cmd::createTable(const string& tableName, const std::vector<Sql::F
 
 	return Sql::Cmd(cmdStr);
 }
-
+//the function will create a select command 
 Sql::Cmd Sql::Cmd::select(const string& what, const string& from, const std::optional<string>& appendCommand)
 {
 	string cmdStr = "";
@@ -89,7 +89,7 @@ Sql::Cmd Sql::Cmd::select(const string& what, const string& from, const std::opt
 
 	return Sql::Cmd(cmdStr);
 }
-
+//the function will create an insert command
 Sql::Cmd Sql::Cmd::insert(const string& into, const std::vector<string>& valuesName, const std::vector<string>& values)
 {
 	string cmdStr = "INSERT INTO ";
@@ -126,18 +126,18 @@ Sql::Cmd Sql::Cmd::insert(const string& into, const std::vector<string>& valuesN
 
 	return Sql::Cmd(cmdStr);
 }
-
+//the function will create a del command
 Sql::Cmd Sql::Cmd::deleteQuery(const string& fromWhere)
 {
 	string cmdStr = "DELETE FROM " + fromWhere;
 	return Sql::Cmd(cmdStr);
 }
-
+//this function will return the command that is stored 
 string Sql::Cmd::getCommand() const
 {
 	return this->m_cmd;
 }
-
+//the function will exec the command
 bool Sql::Cmd::executeCmd(sqlite3* db, const string& cmd, int(*callback)(void*, int, char**, char**), void* data)
 {
 	char* err = nullptr;
@@ -151,7 +151,7 @@ bool Sql::Cmd::executeCmd(sqlite3* db, const string& cmd, int(*callback)(void*, 
 
 	return true;
 }
-
+//callback function from the select command - will return the names
 int Sql::getNamesCallback(void* data, int argc, char** argv, char** azColName)
 {
 	std::vector<string>* playlistNames = reinterpret_cast<std::vector<string>*>(data);

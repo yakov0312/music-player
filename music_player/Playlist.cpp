@@ -11,34 +11,18 @@
 
 using std::string, std::endl, std::cout, std::cin;
 
+//ctor for playlist
 Playlist::Playlist(const string& name, SqliteDataBase& db) : _name(name), _shuffled(false), _running(true), _db(db)
 {
 	//to do: get shuffled from db
 }
-
-Playlist::Playlist(Playlist&& other) noexcept :
-	_name(std::move(other._name)), _db(other._db)
-{
-	_shuffled = other._shuffled;
-	_running.store(other._running.load());
-}
-
-bool Playlist::operator<(const Playlist& other) const
-{
-	return (this->_name < other._name);
-}
-
-bool Playlist::operator==(const string& otherName) const
-{
-	return this->_name == otherName;
-}
-
+//the function will serve the client
 void Playlist::serve()
 {
 	int choice = 0;
 	while (choice != 5)
 	{
-		cout << "playlist name: " << this->_name << "\nChoose one of the options below:\n1.Add a song\n2.Remove a song\n3.Play the playlist" << endl;
+		cout << "Playlist's name : " << this->_name << "\nChoose one of the options below : \n1.Add a song\n2.Remove a song\n3.Play the playlist" << endl;
 		cout << ((this->_shuffled) ? "4.Turn shuffled mode off\n5.exit\n" : "4.Turn shuffled mode on\n5.exit\n");
 
 		cin >> choice;
@@ -46,7 +30,7 @@ void Playlist::serve()
 		{
 			cin.clear();
 			cin.ignore(std::numeric_limits<std::streamsize>::max());
-			cout << "wrong input!!!" << endl;
+			cout << "Wrong input!!!" << endl;
 			continue;
 		}
 		if (choice == 1)
@@ -70,15 +54,15 @@ void Playlist::serve()
 		}
 		else if (choice == 5)
 		{
-			continue;
+			return;
 		}
 		else
 		{
-			cout << "wrong input! " << endl;
+			cout << "Wrong input! " << endl;
 		}
 	}
 }
-
+//the function will add a song to the playlist
 void Playlist::addSong()
 {
 	string song = "";
@@ -92,14 +76,14 @@ void Playlist::addSong()
 		{
 			cout << e.what() << endl;
 		}
-		if (song == "exit")
+		if (song == EXIT)
 		{
 			break;
 		}
 		this->_db.addSongToPlaylist(this->_name, song);
 	} while (true);
 }
-
+//the function will remove a song from the playlist
 void Playlist::removeSong()
 {
 	string song = "";
@@ -114,7 +98,7 @@ void Playlist::removeSong()
 			cout << e.what() << endl;
 			return;
 		}
-		if (song == "exit")
+		if (song == EXIT)
 		{
 			break;
 		}
@@ -122,7 +106,7 @@ void Playlist::removeSong()
 		this->_db.removeSongFromPlaylist(this->_name, song);
 	} while (true);
 }
-
+//the function will stop the song 
 void Playlist::stopToPlay()
 {
 	string stop = "";
@@ -138,23 +122,23 @@ void Playlist::stopToPlay()
 	}
 }
 
-// Function to play a song asynchronously
+// the function will play a given song
 void Playlist::playSong(const string& song) const
 {
 	// Open the audio file
-	string openCommand = "open \"" + song + "\" type waveaudio alias audiofile";
+	string openCommand = std::format(OPEN_SONG, song);
 	mciSendStringA(openCommand.c_str(), NULL, 0, NULL);
 
-	mciSendStringA("play audiofile", NULL, 0, NULL); 
+	mciSendStringA(PLAY_SONG, NULL, 0, NULL); 
 
 	while (this->_running)
 	{
 		Sleep(100);  // Sleep for a short period to avoid high cpu usage
 	}
 
-	mciSendStringA("close audiofile", NULL, 0, NULL);
+	mciSendStringA(CLOSE_SONG, NULL, 0, NULL);
 }
-
+//the function will play the playlist
 void Playlist::playPlaylist() const
 {
 	std::srand(std::time(0));
@@ -182,7 +166,7 @@ void Playlist::playPlaylist() const
 		}
 	}
 }
-
+//the function will get a song from the user
 string Playlist::getSong(const bool songFromPlaylist)
 {
 	cout << "choose one song from the list: " << endl;
@@ -208,8 +192,8 @@ string Playlist::getSong(const bool songFromPlaylist)
 		}
 	}
 
-	cout << std::to_string(numOfSongs) << ". exit" << endl;
-	cout << "your choice: ";
+	cout << numOfSongs << ".Exit" << endl;
+	cout << "Your choice: ";
 	cin >> choice;
 	if (cin.fail())
 	{
@@ -219,7 +203,7 @@ string Playlist::getSong(const bool songFromPlaylist)
 	}
 	if (choice == numOfSongs)
 	{
-		return "exit";
+		return EXIT;
 	}
 	if (songList.size() < choice || choice <= 0)
 	{
@@ -228,7 +212,3 @@ string Playlist::getSong(const bool songFromPlaylist)
 	return songList[choice - 1]; // -1 because we want to convert it to an index
 }
 
-std::ostream& operator<<(std::ostream& os, const Playlist& playlist)
-{
-	return os << playlist._name;
-}
