@@ -2,47 +2,35 @@
 #define NOMINMAX
 #include <limits>
 #include <fstream>
+#include <string>
 #include <filesystem>
 #include <thread>
 #include "Windows.h"
 
 #pragma comment(lib, "winmm.lib")
 
-using std::cout;
-using std::endl;
-using std::string;
-using std::cin;
+using std::string, std::endl, std::cout, std::cin;
 
-Playlist::Playlist(const std::string& name) : _name(name), _songs(), _shuffled(false), _running(true)
+Playlist::Playlist(const string& name, SqliteDataBase& db) : _name(name), _shuffled(false), _running(true), _db(db)
 {
-	std::ifstream playlist(std::format(PLAYLIST_PATH, name));
-	std::string song = "";
-	if (playlist.is_open())
-	{
-
-		while (std::getline(playlist, song))
-		{
-			this->_songs.push_back(song);
-		}
-	}
-	playlist.close();
+	//to do: get shuffled from db
 }
 
 Playlist::Playlist(Playlist&& other) noexcept :
-	_name(std::move(other._name)), _songs(std::move(other._songs))
+	_name(std::move(other._name)), _db(other._db)
 {
 	_shuffled = other._shuffled;
 	_running.store(other._running.load());
 }
 
-bool Playlist::operator<(const Playlist& other)
+bool Playlist::operator<(const Playlist& other) const
 {
-	return this->_name < other._name;
+	return (this->_name < other._name);
 }
 
-bool Playlist::operator==(const Playlist& other)
+bool Playlist::operator==(const string& otherName) const
 {
-	return this->_name == other._name;
+	return this->_name == otherName;
 }
 
 void Playlist::serve()
@@ -71,10 +59,10 @@ void Playlist::serve()
 		}
 		else if (choice == 3)
 		{
+			this->_running = true;
 			std::thread stopPlay(&Playlist::stopToPlay, this);
-			std::thread playAudio(&Playlist::playAudio, this);
-			playAudio.join();
-			stopPlay.join();
+			stopPlay.detach();
+			this->playPlaylist();
 		}
 		else if (choice == 4)
 		{
@@ -93,7 +81,7 @@ void Playlist::serve()
 
 void Playlist::addSong()
 {
-	std::string song = "";
+	string song = "";
 	do
 	{
 		try
@@ -108,19 +96,13 @@ void Playlist::addSong()
 		{
 			break;
 		}
-		this->_songs.push_back(song);
-		std::ofstream playlist(std::format(PLAYLIST_PATH, this->_name));
-		if (!playlist.is_open())
-		{
-			throw std::exception("Cant open a file");
-		}
-		playlist << song << endl;
+		this->_db.addSongToPlaylist(this->_name, song);
 	} while (true);
 }
 
 void Playlist::removeSong()
 {
-	std::string song = "";
+	string song = "";
 	do
 	{
 		try
@@ -137,32 +119,50 @@ void Playlist::removeSong()
 			break;
 		}
 
-		this->_songs.erase(std::find(this->_songs.begin(), this->_songs.end(), song));
-		//to do: earse it from the file too
+		this->_db.removeSongFromPlaylist(this->_name, song);
 	} while (true);
 }
 
 void Playlist::stopToPlay()
 {
 	string stop = "";
-	cout << "enter exit to stop the audio" << endl;
+	cout << "Note: if no audio is playing insure the song exist in the song dir\nEnter exit to stop the audio" << endl;
 	while (this->_running)
 	{
 		std::getline(cin, stop);
 		if (stop == "exit")
 		{
+			mciSendStringA("stop audiofile", NULL, 0, NULL);
 			this->_running = false;
 		}
 	}
 }
 
-void Playlist::playAudio() const
+// Function to play a song asynchronously
+void Playlist::playSong(const string& song) const
+{
+	// Open the audio file
+	string openCommand = "open \"" + song + "\" type waveaudio alias audiofile";
+	mciSendStringA(openCommand.c_str(), NULL, 0, NULL);
+
+	mciSendStringA("play audiofile", NULL, 0, NULL); 
+
+	while (this->_running)
+	{
+		Sleep(100);  // Sleep for a short period to avoid high cpu usage
+	}
+
+	mciSendStringA("close audiofile", NULL, 0, NULL);
+}
+
+void Playlist::playPlaylist() const
 {
 	std::srand(std::time(0));
-	int size = this->_songs.size();
+	const auto& songs = this->_db.getSongsOfPlaylist(this->_name);
+	int size = songs.size();
 	int i = 0;
 	int lastChoice = 0;
-	while (this->_running)
+	while (true)
 	{
 		for(i=0;i<size;i++)
 		{
@@ -174,22 +174,25 @@ void Playlist::playAudio() const
 				} while (lastChoice == i);
 				lastChoice = i;
 			}
-			mciSendStringA(std::string("open \"" + this->_songs[i] + "\" type waveaudio alias audiofile").c_str(), NULL, 0, NULL);
-			mciSendStringA("play audiofile wait", NULL, 0, NULL);
-			mciSendStringA("close audiofile", NULL, 0, NULL);
+			this->playSong("./" + string(SONGS_PATH) + "/" + songs[i]);
+			if (!_running)
+			{
+				return;
+			}
 		}
 	}
 }
 
-std::string Playlist::getSong(const bool songFromPlaylist)
+string Playlist::getSong(const bool songFromPlaylist)
 {
 	cout << "choose one song from the list: " << endl;
 	int choice = 0;
 	int numOfSongs = 1;
-	std::vector<std::string> songList = {};
+	std::vector<string> songList = {};
 	if (songFromPlaylist)
 	{
-		for (const auto& song : this->_songs)
+		songList = this->_db.getSongsOfPlaylist(this->_name);
+		for (const auto& song : songList)
 		{
 			cout << numOfSongs << ". " + song << endl;
 			numOfSongs++;
@@ -197,7 +200,7 @@ std::string Playlist::getSong(const bool songFromPlaylist)
 	}
 	else
 	{
-		for (const auto& file : std::filesystem::directory_iterator(songs))
+		for (const auto& file : std::filesystem::directory_iterator(SONGS_PATH))
 		{
 			cout << numOfSongs << ". " + file.path().filename().string() << endl;
 			songList.push_back(file.path().filename().string());
@@ -218,14 +221,14 @@ std::string Playlist::getSong(const bool songFromPlaylist)
 	{
 		return "exit";
 	}
-	if ((songFromPlaylist && this->_songs.size() < choice) || (!songFromPlaylist && songList.size() < choice) || choice <= 0)
+	if (songList.size() < choice || choice <= 0)
 	{
 		throw std::invalid_argument("Error: wrong input!! song does not exist");
 	}
-	return (songFromPlaylist) ? this->_songs[choice -1] : songList[choice - 1]; // -1 because we want to convert it to an index
+	return songList[choice - 1]; // -1 because we want to convert it to an index
 }
 
 std::ostream& operator<<(std::ostream& os, const Playlist& playlist)
 {
-	return os << playlist._name << endl;
+	return os << playlist._name;
 }

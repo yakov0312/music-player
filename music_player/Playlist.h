@@ -10,29 +10,30 @@
 #include <iostream>
 #include <vector>
 #include <atomic>
+#include "SqliteDataBase.h"
 
-constexpr const char* PLAYLIST_PATH = "playlistData\\{}.txt";
-constexpr const char* songs = "Songs";
+constexpr const char* SONGS_PATH = "Songs";
 
 class Playlist
 {
 public:
-	Playlist(const std::string& name);
+	Playlist(const std::string& name, SqliteDataBase& db);
 	Playlist(Playlist&& other) noexcept;
-	inline bool operator<(const Playlist& other);	
-	bool operator==(const Playlist& other);
+	bool operator<(const Playlist& other) const;	
+	bool operator==(const std::string& otherName) const; // to use with std::find
 	friend std::ostream& operator<<(std::ostream& os, const Playlist& playlist);
 	void serve();
 private:
 	void addSong();
 	void removeSong();
 	void stopToPlay();
-	void playAudio() const;
+	void playSong(const std::string& song) const;
+	void playPlaylist() const;
 	std::string getSong(const bool songFromPlaylist);
 
 	std::string _name;
-	std::vector<std::string> _songs;
 	bool _shuffled;
+	SqliteDataBase& _db;
 	std::atomic<bool> _running;
 };
 

@@ -3,7 +3,9 @@
 #include "SqlCmd.h"
 #include <vector>
 
-
+constexpr const char* DB_NAME = "DB.sqlite";
+constexpr const char* ENABLE_FOREIGN_KEY = "PRAGMA foreign_keys = ON;";
+constexpr int FILE_EXISTS = 0;
 
 class SqliteDataBase
 {

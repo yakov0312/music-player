@@ -1,8 +1,10 @@
 #include "SqlCmd.h"
 #include <iostream>
 
+using std::endl, std::cout, std::string;
 
-Sql::Cmd::Cmd(const std::string& cmd)
+
+Sql::Cmd::Cmd(const string& cmd)
 	: m_cmd(cmd)
 {
 }
@@ -12,20 +14,20 @@ bool Sql::Cmd::run(sqlite3* db, int (*callback)(void*, int, char**, char**), voi
 	return executeCmd(db, m_cmd, callback, data);
 }
 
-Sql::Cmd& Sql::Cmd::withWhere(const std::string& cond)
+Sql::Cmd& Sql::Cmd::withWhere(const string& cond)
 {
 	m_cmd += " WHERE " + cond;
 
 	return *this;
 }
 
-Sql::Cmd& Sql::Cmd::innerJoin(const std::string& table, const std::string& firstCol, const std::string& secondCol)
+Sql::Cmd& Sql::Cmd::innerJoin(const string& table, const string& firstCol, const string& secondCol)
 {
 	m_cmd += " INNER JOIN " + table + " ON " + firstCol + " = " + secondCol;
 	return *this;
 }
 
-Sql::Cmd& Sql::Cmd::withAnd(const std::string& cond)
+Sql::Cmd& Sql::Cmd::withAnd(const string& cond)
 {
 	m_cmd += " AND ";
 	m_cmd += cond;
@@ -33,7 +35,7 @@ Sql::Cmd& Sql::Cmd::withAnd(const std::string& cond)
 	return *this;
 }
 
-Sql::Cmd& Sql::Cmd::withOr(const std::string& cond)
+Sql::Cmd& Sql::Cmd::withOr(const string& cond)
 {
 	m_cmd += " OR ";
 	m_cmd += cond;
@@ -41,9 +43,9 @@ Sql::Cmd& Sql::Cmd::withOr(const std::string& cond)
 	return *this;
 }
 
-Sql::Cmd Sql::Cmd::createTable(const std::string& tableName, const std::vector<Sql::Field>& fields, const std::optional<Key>& key)
+Sql::Cmd Sql::Cmd::createTable(const string& tableName, const std::vector<Sql::Field>& fields, const std::optional<Key>& key)
 {
-	std::string cmdStr = "CREATE TABLE " + tableName;
+	string cmdStr = "CREATE TABLE " + tableName;
 	cmdStr += "(";
 
 	cmdStr.reserve(1024);
@@ -53,7 +55,7 @@ Sql::Cmd Sql::Cmd::createTable(const std::string& tableName, const std::vector<S
 		cmdStr += field.name;
 		cmdStr += " " + field.type;
 
-		for (const std::string& constrain : field.constrains)
+		for (const string& constrain : field.constrains)
 		{
 			cmdStr += " ";
 			cmdStr += constrain;
@@ -74,9 +76,12 @@ Sql::Cmd Sql::Cmd::createTable(const std::string& tableName, const std::vector<S
 	return Sql::Cmd(cmdStr);
 }
 
-Sql::Cmd Sql::Cmd::select(const std::string& what, const std::string& from)
+Sql::Cmd Sql::Cmd::select(const string& what, const string& from, const std::optional<string>& appendCommand)
 {
-	std::string cmdStr = "SELECT ";
+	string cmdStr = "";
+	if (appendCommand.has_value())
+		cmdStr = appendCommand.value() + " ";
+	cmdStr += "SELECT ";
 	cmdStr += what;
 
 	cmdStr += " FROM ";
@@ -85,15 +90,26 @@ Sql::Cmd Sql::Cmd::select(const std::string& what, const std::string& from)
 	return Sql::Cmd(cmdStr);
 }
 
-Sql::Cmd Sql::Cmd::insert(const std::string& into, const std::vector<std::string>& values)
+Sql::Cmd Sql::Cmd::insert(const string& into, const std::vector<string>& valuesName, const std::vector<string>& values)
 {
-	std::string cmdStr = "INSERT INTO ";
+	string cmdStr = "INSERT INTO ";
 	cmdStr += into;
-	cmdStr += " ";
+	cmdStr += " (";
+	for (const string& name : valuesName)
+	{
+		cmdStr += name;
+		cmdStr += ", ";
+	}
+	cmdStr.pop_back();
+	cmdStr.pop_back();
+	cmdStr += ") ";
+
+	if(values.size() == 0)
+		return Sql::Cmd(cmdStr);// this check is used to make advanced insert queries
 
 	cmdStr += "VALUES(";
 
-	for(const std::string& value : values)
+	for(const string& value : values)
 	{
 		cmdStr += value;
 		cmdStr += ", ";
@@ -111,24 +127,24 @@ Sql::Cmd Sql::Cmd::insert(const std::string& into, const std::vector<std::string
 	return Sql::Cmd(cmdStr);
 }
 
-Sql::Cmd Sql::Cmd::deleteQuery(const std::string& fromWhere)
+Sql::Cmd Sql::Cmd::deleteQuery(const string& fromWhere)
 {
-	std::string cmdStr = "DELETE FROM " + fromWhere;
+	string cmdStr = "DELETE FROM " + fromWhere;
 	return Sql::Cmd(cmdStr);
 }
 
-std::string Sql::Cmd::getCommand() const
+string Sql::Cmd::getCommand() const
 {
 	return this->m_cmd;
 }
 
-bool Sql::Cmd::executeCmd(sqlite3* db, const std::string& cmd, int(*callback)(void*, int, char**, char**), void* data)
+bool Sql::Cmd::executeCmd(sqlite3* db, const string& cmd, int(*callback)(void*, int, char**, char**), void* data)
 {
 	char* err = nullptr;
 
 	if (sqlite3_exec(db, (cmd + ";").c_str(), callback, data, &err) != SQLITE_OK)
 	{
-		std::cout << err << std::endl;
+		std::cout << err << endl;
 		sqlite3_free(err);
 		return false; 
 	} 
@@ -138,10 +154,11 @@ bool Sql::Cmd::executeCmd(sqlite3* db, const std::string& cmd, int(*callback)(vo
 
 int Sql::getNamesCallback(void* data, int argc, char** argv, char** azColName)
 {
-	std::vector<std::string>* playlistNames = reinterpret_cast<std::vector<std::string>*>(data);
+	std::vector<string>* playlistNames = reinterpret_cast<std::vector<string>*>(data);
 
-	if (argc > 0 && argv[0] != nullptr) {
-		playlistNames->push_back(argv[0]);  // Add playlist name to vector
+	for (int i = 0; i < argc; i++)
+	{
+		playlistNames->push_back(argv[i]);
 	}
 
 	return 0;

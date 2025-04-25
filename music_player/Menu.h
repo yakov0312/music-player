@@ -9,9 +9,6 @@
 #include "Playlist.h"
 #include <map>
 
-//consts 
-constexpr const char* PLAYLIST_DATA = "playlistData";
-
 class Menu
 {
 public:
@@ -21,5 +18,5 @@ public:
 private:
 	void createPlaylist();
 	void selectPlaylist();
-	std::vector<Playlist> _playlists; // - will restore it self(the way is written in Playlist.h)
+	SqliteDataBase& _db;
 };

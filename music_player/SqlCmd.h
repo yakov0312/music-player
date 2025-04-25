@@ -2,8 +2,16 @@
 
 #include <string>
 #include <vector>
+#include <format>
 #include "sqlite3.h"
 #include <optional>
+
+
+template<typename... Types>
+inline std::string string_format(const std::string& format, Types&&... args)
+{
+	return std::vformat(format, std::make_format_args(std::forward<Types>(args)...));
+}
 
 namespace Sql
 {
@@ -33,14 +41,8 @@ namespace Sql
 		bool run(sqlite3* db, int (*callback)(void*, int, char**, char**) = nullptr, void* data = nullptr) const;
 
 		// execute the command, with format parametrs (e.g %s, %d, %f, ext.)
-		template <typename... Types>
-		bool runFormat(sqlite3* db, Types... args) const;
-
-		template <typename... Types>
-		bool runFormat(sqlite3* db, int (*callback)(void*, int, char**, char**), Types... args) const;
-
-		template <typename... Types>
-		bool runFormat(sqlite3* db, int (*callback)(void*, int, char**, char**), void* data, Types... args) const;
+		template<typename... Types>
+		inline bool runFormat(sqlite3* db, int(*callback)(void*, int, char**, char**) = nullptr, void* data = nullptr, Types&&... args) const;
 
 		// append a where cmd to the end of this cmd
 		Cmd& withWhere(const std::string& cond);
@@ -55,11 +57,11 @@ namespace Sql
 		static Cmd createTable(const std::string& tableName, const std::vector<Sql::Field>& fields, const std::optional<Key>& key);
 
 		// create "SELECT (what) FROM from" cmd
-		static Cmd select(const std::string& what, const std::string& from);
+		static Cmd select(const std::string& what, const std::string& from, const std::optional<std::string>& appendCommand);
 
 
 		// create "INSERT INTO into VALUES(values...)" cmd
-		static Cmd insert(const std::string& into, const std::vector<std::string>& values);
+		static Cmd insert(const std::string& into, const std::vector<std::string>& valuesName, const std::vector<std::string>& values);
 
 		static Cmd deleteQuery(const std::string& fromWhere);
 
@@ -73,23 +75,14 @@ namespace Sql
 			int (*callback)(void*, int, char**, char**) = nullptr, void* data = nullptr);
 	};
 
-	template<typename... Types>
-	inline bool Cmd::runFormat(sqlite3* db, Types... args) const
-	{
-		return runFormat(db, (int(*)(void*, int, char**, char**))nullptr, (void*)nullptr, args...);
-	}
 
 	template<typename... Types>
-	inline bool Cmd::runFormat(sqlite3* db, int(*callback)(void*, int, char**, char**), Types... args) const
+	inline bool Cmd::runFormat(sqlite3* db, int(*callback)(void*, int, char**, char**), void* data, Types&&... args) const
 	{
-		return runFormat(db, callback, nullptr, args...);
-	}
-
-	template<typename... Types>
-	inline bool Cmd::runFormat(sqlite3* db, int(*callback)(void*, int, char**, char**), void* data, Types... args) const
-	{
-		return executeCmd(db, string_format(m_cmd, args...), callback, data);
+		std::string query = string_format(m_cmd, std::forward<Types>(args)...); // Format the command
+		return executeCmd(db, query, callback, data); // Execute the query with the formatted string
 	}
 
 	int getNamesCallback(void* data, int argc, char** argv, char** azColName);
 }
+

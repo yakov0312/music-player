@@ -25,6 +25,7 @@ namespace Sql
 		
 		static CS NAME = "NAME";
 		static CS ID = "ID";
+		//to do: add shuffle to the db
 	};
 
 	class Songs : public Table

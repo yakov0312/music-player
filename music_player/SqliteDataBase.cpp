@@ -4,32 +4,30 @@
 #include <iostream>
 #include "SqlConstants.h"
 
-constexpr const char* DB_NAME = "DB.sqlite";
-constexpr const char* ENABLE_FOREIGN_KEY = "PRAGMA foreign_keys = ON;";
-constexpr int FILE_EXISTS = 0;
+using std::string, std::endl;
 
 SqliteDataBase::SqliteDataBase()
     : m_db(nullptr),
     m_createPlaylistTable(Sql::Cmd::createTable(Sql::PLAYLIST.tableName(),
         { {Sql::PLAYLIST.NAME, Sql::Types::String, {Sql::Constrains::NOT_NULL}},
-        {Sql::PLAYLIST.ID, Sql::Types::Int, {Sql::Constrains::PRIMARY_KEY}} }, std::nullopt)),
+        {Sql::PLAYLIST.ID, Sql::Types::Int, {Sql::Constrains::PRIMARY_KEY, Sql::Constrains::UNIQUE}} }, std::nullopt)),
 
     m_createSongTable(Sql::Cmd::createTable(Sql::SONGS.tableName(),
         { {Sql::SONGS.NAME, Sql::Types::String, {Sql::Constrains::NOT_NULL}},
         {Sql::SONGS.PLAYLIST_ID, Sql::Types::String, {Sql::Constrains::NOT_NULL}} },
         std::optional<Sql::Key>({ Sql::SONGS.PLAYLIST_ID, Sql::PLAYLIST.ID, Sql::PLAYLIST.tableName() }))),
 
-    m_addSong(Sql::Cmd::insert(Sql::SONGS.tableName(), { Sql::SONGS.NAME, Sql::SONGS.PLAYLIST_ID }).select(Sql::PLAYLIST.ID + std::string("{}"), Sql::PLAYLIST.tableName()).withWhere(Sql::PLAYLIST.NAME + std::string(" = '{}'"))),
+    m_addSong(Sql::Cmd::select(string("'{}', ") + Sql::PLAYLIST.ID, Sql::PLAYLIST.tableName(), Sql::Cmd::insert(Sql::SONGS.tableName(), { Sql::SONGS.NAME, Sql::SONGS.PLAYLIST_ID }, {}).getCommand()).withWhere(Sql::PLAYLIST.NAME + string(" = '{}'"))),
 
-    m_removeSong(Sql::Cmd::deleteQuery(Sql::SONGS.tableName()).withWhere(Sql::SONGS.PLAYLIST_ID + std::string(" = (") + Sql::Cmd::select(Sql::PLAYLIST.ID, Sql::PLAYLIST.tableName()).withWhere(Sql::PLAYLIST.NAME + std::string(" = '{}'")).getCommand() + ") ").withAnd(Sql::SONGS.NAME + std::string(" = '{}'"))),
+    m_removeSong(Sql::Cmd::deleteQuery(Sql::SONGS.tableName()).withWhere(Sql::SONGS.PLAYLIST_ID + string(" = (") + Sql::Cmd::select(Sql::PLAYLIST.ID, Sql::PLAYLIST.tableName(), std::nullopt).withWhere(Sql::PLAYLIST.NAME + string(" = '{}'")).getCommand() + ") ").withAnd(Sql::SONGS.NAME + string(" = '{}'"))),
 
-    m_getSongsOfPlaylist(Sql::Cmd::select(Sql::SONGS.NAME, Sql::SONGS.tableName()).innerJoin(Sql::PLAYLIST.tableName(), Sql::PLAYLIST.ID, Sql::SONGS.PLAYLIST_ID).withWhere(Sql::PLAYLIST.tableName() + '.' + Sql::PLAYLIST.NAME + std::string(" = '%s'"))),
+    m_getSongsOfPlaylist(Sql::Cmd::select(Sql::SONGS.tableName() + '.' + Sql::SONGS.NAME, Sql::SONGS.tableName(), std::nullopt).innerJoin(Sql::PLAYLIST.tableName(), Sql::PLAYLIST.ID, Sql::SONGS.PLAYLIST_ID).withWhere(Sql::PLAYLIST.tableName() + '.' + Sql::PLAYLIST.NAME + string(" = '{}'"))),
 
-    m_getPlaylists(Sql::Cmd::select(Sql::PLAYLIST.NAME, Sql::PLAYLIST.tableName())),
+    m_getPlaylists(Sql::Cmd::select(Sql::PLAYLIST.NAME, Sql::PLAYLIST.tableName(), std::nullopt)),
 
-    m_createPlaylist(Sql::Cmd::insert(Sql::PLAYLIST.tableName(), {"'{}'"})),
+    m_createPlaylist(Sql::Cmd::insert(Sql::PLAYLIST.tableName(), { Sql::PLAYLIST.NAME } , { "'{}'" })),
 
-    m_deletePlaylist(Sql::Cmd::deleteQuery(Sql::PLAYLIST.tableName()).withWhere(Sql::PLAYLIST.NAME + std::string(" = '{}'")))
+    m_deletePlaylist(Sql::Cmd::deleteQuery(Sql::PLAYLIST.tableName()).withWhere(Sql::PLAYLIST.NAME + string(" = '{}'")))
 
 {
     bool doesFileExists = _access(DB_NAME, 0) == FILE_EXISTS;
@@ -45,7 +43,8 @@ SqliteDataBase::SqliteDataBase()
 
     if (sqlite3_exec(m_db, ENABLE_FOREIGN_KEY, nullptr, nullptr, &errMsg) != SQLITE_OK)
     {
-        std::cout << errMsg << std::endl;
+        std::cout << errMsg << endl;
+        sqlite3_free(errMsg);
         return;
     }
 
@@ -72,36 +71,38 @@ SqliteDataBase::~SqliteDataBase()
     m_db = nullptr;
 }
 
-void SqliteDataBase::addSongToPlaylist(const std::string& playlistName, const std::string& song)
+void SqliteDataBase::addSongToPlaylist(const string& playlistName, const string& song)
 {
-    m_addSong.runFormat(m_db, song, playlistName);
+    m_addSong.runFormat(m_db, nullptr, nullptr, song, playlistName);
 }
 
-void SqliteDataBase::removeSongFromPlaylist(const std::string& playlistName, const std::string& song)
+void SqliteDataBase::removeSongFromPlaylist(const string& playlistName, const string& song)
 {
-    m_removeSong.runFormat(m_db, playlistName, song);
+    m_removeSong.runFormat(m_db, nullptr, nullptr, playlistName, song);
 }
 
-void SqliteDataBase::createPlaylist(const std::string& playlistName)
+void SqliteDataBase::createPlaylist(const string& playlistName)
 {
-    m_createPlaylist.runFormat(m_db, playlistName);
+    m_createPlaylist.runFormat(m_db, nullptr, nullptr, playlistName);
 }
 
-void SqliteDataBase::deletePlaylist(const std::string& playlistName)
+void SqliteDataBase::deletePlaylist(const string& playlistName)
 {
-    m_deletePlaylist.runFormat(m_db, playlistName);
+    m_deletePlaylist.runFormat(m_db, nullptr, nullptr, playlistName);
 }
 
-std::vector<std::string> SqliteDataBase::getSongsOfPlaylist(const std::string& playlistName)
+std::vector<string> SqliteDataBase::getSongsOfPlaylist(const string& playlistName)
 {
-    std::vector<std::string> songs = {};
+    std::vector<string> songs = {};
     m_getSongsOfPlaylist.runFormat(m_db, Sql::getNamesCallback, &songs, playlistName);
+    return songs;
 }
 
-std::vector<std::string> SqliteDataBase::getPlaylists()
+std::vector<string> SqliteDataBase::getPlaylists()
 {
-    std::vector<std::string> playlists = {};
+    std::vector<string> playlists = {};
     m_getPlaylists.run(m_db, Sql::getNamesCallback, &playlists);
+    return playlists;
 }
 
 bool SqliteDataBase::initDB()
